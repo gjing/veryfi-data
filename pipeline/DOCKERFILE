@@ -1,0 +1,9 @@
+FROM python:3.10-alpine
+WORKDIR /pipeline
+RUN apk add --no-cache gcc musl-dev linux-headers
+RUN pip install poetry
+COPY poetry.lock pyproject.toml ./
+RUN poetry install
+EXPOSE 3000
+COPY . .
+CMD ["poetry", "run",  "dagster", "dev"]

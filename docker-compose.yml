@@ -1,0 +1,37 @@
+services:
+  flaskapi:
+    build:
+      context: ./api_server
+      dockerfile: DOCKERFILE
+    ports:
+      - 5000:5000
+    environment:
+      - MONGODB_URL=mongodb://root:pass@mongodb:27017/
+    hostname: flaskapi
+    links:
+      - db
+
+  pipeline:
+    build:
+      context: ./pipeline
+      dockerfile: DOCKERFILE
+    ports:
+      - 3000:3000
+    environment:
+      - MONGODB_URL=mongodb://root:pass@mongodb:27017/
+    hostname: pipeline
+    links:
+      - db
+      - flaskapi
+
+  db:
+    image: mongo:latest
+    hostname: mongodb
+    environment:
+      - MONGO_INITDB_DATABASE=veryfi
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=pass
+    volumes:
+      - ./init-db.js:/docker-entrypoint-initdb.d/init-db.js:ro
+    ports:
+      - 27017:27017
