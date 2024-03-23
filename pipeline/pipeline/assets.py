@@ -60,15 +60,14 @@ def extract_items(context) -> Output:
                 yield DynamicOutput(chunk, mapping_key=item["code"])
                 chunk = []
         if chunk:
-            yield DynamicOutput(chunk, mapping_key=item["code"])
+            yield DynamicOutput(chunk, mapping_key="tail")
 
 @op(required_resource_keys={"mongodb"})
 def dump_piece(context, piece: list):
     """
     Upsert the data into mongodb
     runs faster with more dagster workers
-    Batching/chunking the db calls would be more efficient
-        than doing an update on each item individually
+    bulk writes are more efficient, can change the size in the
     complex transformations (e.g. if I had used a schema with Postgres)
         may want to have transform as a dedicated op instead
     Possible race conditions with db writes
