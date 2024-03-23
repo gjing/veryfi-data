@@ -29,10 +29,13 @@ def extract_items() -> Output:
     """
     extracting all the data
     ijson to stream in the data from the file without
-    needing to load it all in memory at once
+        needing to load it all in memory at once
+    Dagster caches to disk, but all the ops need to be
+        frontloaded so chunking the data would be better if speed
+        is a priority
 
     file should come from an api endpoint rather than be stored locally
-    gzipped to reduce size
+    datafile gzipped to reduce size
     """
     i = 0
     with gzip.open("pipeline/dataset.json.gz", "r") as raw_data:
@@ -54,8 +57,7 @@ def dump_piece(context, piece: dict):
         may want to have transform as a dedicated op instead
     Possible race conditions with db writes
 
-    needs error checking and logging
-    also could use unit testing
+    needs error checking, logging, and unit testing
     """
     def transform(item: dict) -> tuple:
         """
