@@ -2,7 +2,7 @@ import ijson, gzip, os
 from decimal import Decimal
 from bson.decimal128 import Decimal128
 
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateOne
 from dagster import (
     Output,
     DynamicOut,
@@ -11,7 +11,8 @@ from dagster import (
     job,
     resource,
     schedule,
-    RunRequest
+    RunRequest,
+    Field
 )
 
 
@@ -24,12 +25,20 @@ def mongodb():
     client = MongoClient(uri)
     return client.veryfi
 
-@op(out=DynamicOut())
-def extract_items() -> Output:
+@op(
+    out=DynamicOut(),
+    config_schema={
+        'chunk_size': Field(int, default_value=10),
+    },
+)
+def extract_items(context) -> Output:
     """
     extracting all the data
     ijson to stream in the data from the file without
         needing to load it all in memory at once
+    pandas or regular json could be used to chunk one line at a time
+        and do more work in parallel than an ijson stream but the
+        provided file would not work without extra modification
     Dagster caches to disk, but all the ops need to be
         frontloaded so chunking the data would be better if speed
         is a priority
@@ -38,16 +47,23 @@ def extract_items() -> Output:
     datafile gzipped to reduce size
     """
     i = 0
+    chunk_size = context.op_config['chunk_size']
     with gzip.open("pipeline/dataset.json.gz", "r") as raw_data:
+        chunk = []
         for item in ijson.items(raw_data, "item"):
             # break after 100 for testing, remove for prod
             if i >= 100:
                 break
             i += 1
-            yield DynamicOutput(item, mapping_key=item["code"])
+            chunk.append(item)
+            if len(chunk) == chunk_size:
+                yield DynamicOutput(chunk, mapping_key=item["code"])
+                chunk = []
+        if chunk:
+            yield DynamicOutput(chunk, mapping_key=item["code"])
 
 @op(required_resource_keys={"mongodb"})
-def dump_piece(context, piece: dict):
+def dump_piece(context, piece: list):
     """
     Upsert the data into mongodb
     runs faster with more dagster workers
@@ -87,8 +103,11 @@ def dump_piece(context, piece: dict):
                 dict_item[k] = Decimal128(str(v))
 
         return dict_item
-    item = transform(piece)
-    context.resources.mongodb.veryfi.replace_one(item[0], item[1], upsert=True)
+    updates = []
+    for item in piece:
+        pid, t_item = transform(item)
+        updates.append(UpdateOne(pid, {"$set": t_item}, upsert=True))
+    context.resources.mongodb.veryfi.bulk_write(updates)
 
 
 @job(resource_defs={"mongodb": mongodb})
