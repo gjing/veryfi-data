@@ -1,11 +1,7 @@
 from flask import Flask
-import json, bson, ijson
+from bson.json_util import dumps
 from flask_pymongo import MongoClient
 import os
-
-from pymongo.errors import DuplicateKeyError, OperationFailure
-from bson.objectid import ObjectId
-from bson.errors import InvalidId
 
 app = Flask(__name__)
 mongo_uri = os.environ.get("MONGODB_URL", False)
@@ -26,5 +22,5 @@ def get_data(oid=""):
     collection = db['veryfi']
     print(client.server_info())
     if oid:
-        return collection.find_one({"_id": oid})
-    return collection.find()
+        return dumps(collection.find_one({"_id": oid}))
+    return dumps(collection.find(batch_size=100))

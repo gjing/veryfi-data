@@ -37,6 +37,7 @@ def extract_items() -> Output:
     i = 0
     with gzip.open("pipeline/dataset.json.gz", "r") as raw_data:
         for item in ijson.items(raw_data, "item"):
+            # break after 100 for testing, remove for prod
             if i >= 100:
                 break
             i += 1
@@ -47,19 +48,28 @@ def dump_piece(context, piece: dict):
     """
     Upsert the data into mongodb
     runs faster with more dagster workers
+    Batching/chunking the db calls would be more efficient
+        than doing an update on each item individually
+    complex transformations (e.g. if I had used a schema with Postgres)
+        may want to have transform as a dedicated op instead
+    Possible race conditions with db writes
+
+    needs error checking and logging
+    also could use unit testing
     """
-    def transform(item: dict):
+    def transform(item: dict) -> tuple:
         """
-        replace _id with code as primary key
+        Shift old _id into oid
+        return tuple of code (new id) and rest of item
         """
         oid = item.pop("_id", None)
         code = item.pop("code")
         if oid:
             item["oid"] = oid
         item = convert_decimal(item)
-        return code, item
+        return {"_id": code}, item
 
-    def convert_decimal(dict_item):
+    def convert_decimal(dict_item) -> dict:
         """
         Recursively convert decimals for bson format
         """
@@ -76,7 +86,7 @@ def dump_piece(context, piece: dict):
 
         return dict_item
     item = transform(piece)
-    context.resources.mongodb.veryfi.replace_one({"_id": item[0]}, item[1], upsert=True)
+    context.resources.mongodb.veryfi.replace_one(item[0], item[1], upsert=True)
 
 
 @job(resource_defs={"mongodb": mongodb})
