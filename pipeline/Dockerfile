@@ -1,11 +1,9 @@
 FROM python:3.10-alpine
-WORKDIR /code
-ENV FLASK_APP=app.py
-ENV FLASK_RUN_HOST=0.0.0.0
+WORKDIR /pipeline
 RUN apk add --no-cache gcc musl-dev linux-headers
 RUN pip install poetry
 COPY poetry.lock pyproject.toml ./
 RUN poetry install
-EXPOSE 5000
+EXPOSE 3001
 COPY . .
-CMD ["poetry", "run",  "flask", "--app", "api", "run"]
+ENTRYPOINT ["poetry", "run", "dagster-webserver", "-h", "0.0.0.0", "-p", "3001"]

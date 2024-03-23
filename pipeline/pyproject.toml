@@ -18,4 +18,5 @@ dagster = {version = "^1.6.12", python="^3.10,<3.13"}
 dagster-webserver = {version = "^1.6.12", python="^3.10,<3.13"}
 ijson = "^3.2.3"
 pymongo = "^4.6.2"
+bson = "^0.5.10"
 
