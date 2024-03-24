@@ -29,6 +29,7 @@ def mongodb():
     out=DynamicOut(),
     config_schema={
         'chunk_size': Field(int, default_value=10),
+        'read_limit': Field(int, default_value=0),
     },
 )
 def extract_items(context) -> Output:
@@ -48,11 +49,11 @@ def extract_items(context) -> Output:
     """
     i = 0
     chunk_size = context.op_config['chunk_size']
+    read_limit = context.op_config['read_limit']
     with gzip.open("pipeline/dataset.json.gz", "r") as raw_data:
         chunk = []
         for item in ijson.items(raw_data, "item"):
-            # break after 100 for testing, remove for prod
-            if i >= 100:
+            if read_limit and i >= read_limit:
                 break
             i += 1
             chunk.append(item)
@@ -111,8 +112,8 @@ def dump_piece(context, piece: list):
 
 @job(resource_defs={"mongodb": mongodb})
 def load_items():
-    pieces = extract_items()
-    pieces.map(dump_piece)
+    pieces = extract_items().map(dump_piece)
+    # pieces.map(dump_piece)
 
 
 @schedule(job=load_items, cron_schedule="0 0 * * 0")
