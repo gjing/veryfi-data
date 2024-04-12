@@ -1,6 +1,6 @@
 # VeryFi Data project
 
-## Interview take-home assignedment for Veryfi
+## Interview take-home assignment for Veryfi
 
 Run
 ```docker compose up```
